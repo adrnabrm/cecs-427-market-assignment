@@ -2,6 +2,7 @@ import networkx as nx
 import argparse
 import matplotlib.pyplot as plt
 from typing import Dict, List, Tuple, Set
+import os
 
 def build_preferred_graph(G: nx.Graph, prices: Dict[int, int]) -> nx.Graph:
     """
@@ -329,9 +330,34 @@ def main():
     parser.add_argument('--interactive', action='store_true',
                        help='Show detailed output for each round')
     args = parser.parse_args()
+
+    # Handle non-existent file
+    if not os.path.exists(args.gml_file):
+        print(f"Error: File '{args.gml_file}' not found.")
+        return
     
     # Load the graph from GML file
-    G = nx.read_gml(args.gml_file, label='id')
+    try:
+        G = nx.read_gml(args.gml_file, label='id')
+    except Exception as e:
+        print(f"Error reading '{args.gml_file}': {e}")
+        return
+    
+    # Handle empty graph
+    if len(G.nodes) == 0 or len(G.edges) == 0:
+        print(f"Error: '{args.gml_file}' contains an empty graph.")
+        return
+
+    # Handle misising values
+    for n, data in G.nodes(data=True):
+        if 'bipartite' not in data:
+            print(f"Error: Node {n} missing 'bipartite' attribute.")
+            return
+
+    for u, v, data in G.edges(data=True):
+        if 'valuation' not in data:
+            print(f"Error: Edge ({u}, {v}) missing 'valuation' attribute.")
+            return
     
     if not args.interactive:
         print("Original Graph:")
