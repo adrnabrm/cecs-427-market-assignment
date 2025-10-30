@@ -220,13 +220,16 @@ def market_clearing(G: nx.Graph, interactive: bool = False) -> Tuple[List[Tuple[
 
 def visualize_market(G: nx.Graph, matching: List[Tuple[int, int]], prices: Dict[int, int]):
     """
-    Visualize the market graph with matching and prices.
+    Visualize the preferred-seller graph with matching and prices.
     
     Args:
         G: The original bipartite graph with valuations
         matching: List of (buyer, seller) pairs from the matching
         prices: Dictionary mapping seller IDs to final prices
     """
+    # Build the preferred-seller graph
+    P = build_preferred_graph(G, prices)
+    
     # Create a directed graph for visualization
     plt.figure(figsize=(14, 8))
     
@@ -246,40 +249,68 @@ def visualize_market(G: nx.Graph, matching: List[Tuple[int, int]], prices: Dict[
     # Create a matching set for quick lookup
     matching_set = set(matching)
     
-    # Draw all edges
-    for buyer, seller in G.edges():
-        valuation = G.edges[buyer, seller]['valuation']
-        color = 'green' if (buyer, seller) in matching_set else 'lightgray'
-        width = 3 if (buyer, seller) in matching_set else 1
+    # Store edge info for labels
+    edge_labels = {}
+    offset_pos = {}
+    
+    # Draw only edges from the preferred-seller graph
+    for buyer, seller in P.edges():
+        # Check if this edge is in the matching
+        is_matched = (buyer, seller) in matching_set
+        color = 'green' if is_matched else 'blue'
+        width = 4 if is_matched else 2
         G_draw = nx.DiGraph()
         G_draw.add_edge(buyer, seller)
         nx.draw_networkx_edges(G_draw, pos, edge_color=color, width=width, 
-                               arrows=True, arrowsize=20, alpha=0.6)
+                               arrows=True, arrowsize=25, alpha=0.8)
+        
+        # Calculate payoff and store label position
+        if G.has_edge(buyer, seller):
+            valuation = G.edges[buyer, seller]['valuation']
+            payoff = valuation - prices.get(seller, 0)
+            # Position label to avoid overlaps - place above the seller node
+            seller_x, seller_y = pos[seller]
+            buyer_idx = sorted(buyers).index(buyer)
+            seller_idx = sorted(sellers).index(seller)
+            # Offset each label vertically based on which buyer is pointing to it
+            label_y_offset = 0.8 + (buyer_idx - seller_idx) * 0.4
+            offset_pos[(buyer, seller)] = (seller_x + 0.3, seller_y + label_y_offset)
+            edge_labels[(buyer, seller)] = f'B{buyer}→p={payoff}'
     
     # Draw buyers (left side)
-    nx.draw_networkx_nodes(G, pos, nodelist=buyers, node_color='lightblue',
-                           node_size=2000, node_shape='o')
+    matched_buyers = [buyer for buyer, _ in matching]
+    buyer_colors = ['lightgreen' if buyer in matched_buyers else 'lightblue' 
+                    for buyer in buyers]
+    nx.draw_networkx_nodes(G, pos, nodelist=buyers, node_color=buyer_colors,
+                           node_size=2500, node_shape='o')
     nx.draw_networkx_labels(G, pos, {b: f'B{b}' for b in buyers}, 
-                           font_size=14, font_weight='bold')
+                           font_size=16, font_weight='bold')
     
     # Draw sellers (right side)
-    seller_colors = ['lightgreen' if s in [seller for _, seller in matching] 
-                     else 'lightcoral' for s in sellers]
+    matched_sellers = [seller for _, seller in matching]
+    seller_colors = ['lightgreen' if seller in matched_sellers else 'lightcoral' 
+                     for seller in sellers]
     nx.draw_networkx_nodes(G, pos, nodelist=sellers, node_color=seller_colors,
-                           node_size=2000, node_shape='s')
+                           node_size=2500, node_shape='s')
     
     # Add seller labels with prices
     seller_labels = {s: f'S{s}\np={prices.get(s, 0)}' for s in sellers}
-    nx.draw_networkx_labels(G, pos, seller_labels, font_size=12, font_weight='bold')
+    nx.draw_networkx_labels(G, pos, seller_labels, font_size=14, font_weight='bold')
     
-    # Edge labels removed - not showing valuations in the plot
+    # Add edge labels showing payoffs (positioned to the side)
+    for (buyer, seller), label in edge_labels.items():
+        label_pos = offset_pos[(buyer, seller)]
+        plt.text(label_pos[0], label_pos[1], label, 
+                fontsize=11, fontweight='bold',
+                bbox=dict(boxstyle='round,pad=0.3', facecolor='white', alpha=0.8),
+                ha='left', va='center')
     
     # Add title
     total_value = sum(G.edges[buyer, seller]['valuation'] 
                      for buyer, seller in matching)
-    plt.title(f'Market Clearing: Total Value = {total_value}\n'
-              f'Matching in green, Prices shown for sellers', 
-              fontsize=16, fontweight='bold')
+    plt.title(f'Preferred-Seller Graph (Final Round)\n'
+              f'Prices: {prices}, Matching (green edges): {matching}, Total Value = {total_value}', 
+              fontsize=14, fontweight='bold')
     
     plt.axis('off')
     plt.tight_layout()
