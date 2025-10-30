@@ -89,12 +89,13 @@ def find_constricted_set(P: nx.DiGraph) -> Tuple[Set[int], Set[int]]:
     return set(), set()
 
 
-def market_clearing(G: nx.Graph) -> Tuple[List[Tuple[int, int]], Dict[int, int]]:
+def market_clearing(G: nx.Graph, interactive: bool = False) -> Tuple[List[Tuple[int, int]], Dict[int, int]]:
     """
     Market-clearing algorithm to find perfect matching and market-clearing prices.
     
     Args:
         G: Bipartite graph with buyers, sellers, and edge valuations
+        interactive: If True, show detailed output for each round
         
     Returns:
         Tuple of (matching, prices) where:
@@ -116,17 +117,41 @@ def market_clearing(G: nx.Graph) -> Tuple[List[Tuple[int, int]], Dict[int, int]]
         # 1. Construct preferred-seller graph
         P = build_preferred_graph(G, prices)
         
-        print(f"\n--- Iteration {iteration} ---")
-        print(f"Prices: {prices}")
-        print(f"Preferred graph edges: {list(P.edges())}")
+        if interactive:
+            print(f"\n{'='*60}")
+            print(f"ROUND {iteration}")
+            print(f"{'='*60}")
+            print(f"\nCurrent Prices: {prices}")
+        
+        # Get buyers and sellers from original graph
+        all_buyers = [n for n in G.nodes if G.nodes[n].get('bipartite') == 0]
+        all_sellers = [n for n in G.nodes if G.nodes[n].get('bipartite') == 1]
+        
+        # Show preferred seller graph details
+        if interactive:
+            print(f"\nPREFERRED SELLER GRAPH:")
+            buyers_in_P = set(source for source, _ in P.edges())
+            for buyer in all_buyers:
+                if buyer not in buyers_in_P:
+                    print(f"  Buyer {buyer}: No preferred sellers (all payoffs negative)")
+                else:
+                    preferred = [s for b, s in P.edges() if b == buyer]
+                    # Calculate payoffs for this buyer
+                    payoffs = {}
+                    for seller in preferred:
+                        if G.has_edge(buyer, seller):
+                            valuation = G.edges[buyer, seller]['valuation']
+                            price = prices.get(seller, 0)
+                            payoffs[seller] = valuation - price
+                    if payoffs:
+                        max_payoff = max(payoffs.values())
+                        print(f"  Buyer {buyer}: Preferred sellers = {preferred}, Payoff = {max_payoff}")
+            print(f"  Edges: {list(P.edges())}")
         
         # 2. Check if there exists a perfect matching
         # Try to find maximum bipartite matching
         buyers_in_P = set(source for source, _ in P.edges())
         sellers_in_P = set(target for _, target in P.edges())
-        
-        # Get all buyers and sellers from original graph
-        all_buyers = [n for n in G.nodes if G.nodes[n].get('bipartite') == 0]
         
         if not buyers_in_P:
             # No buyers have any preferred sellers (all payoffs negative)
@@ -140,12 +165,21 @@ def market_clearing(G: nx.Graph) -> Tuple[List[Tuple[int, int]], Dict[int, int]]
             
             # Check if it's perfect (all buyers matched)
             matched_buyers = [b for b in buyers_in_P if b in matching]
+            
+            if interactive:
+                print(f"\nMATCHING COMPUTATION:")
+                print(f"  Matching found: {matching}")
+                print(f"  Matched buyers: {matched_buyers}")
+                print(f"  Perfect matching? {len(all_buyers) == len(matched_buyers) and matched_buyers}")
+            
             if len(all_buyers) == len(matched_buyers) and matched_buyers:
                 # Convert matching dict to list of tuples
                 matching_list = []
                 for buyer in matched_buyers:
                     if buyer in matching:
                         matching_list.append((buyer, matching[buyer]))
+                if interactive:
+                    print(f"\n✓ PERFECT MATCHING ACHIEVED!")
                 return matching_list, prices
         
         # 3. Find a constricted set
@@ -156,17 +190,30 @@ def market_clearing(G: nx.Graph) -> Tuple[List[Tuple[int, int]], Dict[int, int]]
             # This shouldn't happen, but raise an error
             raise RuntimeError("Unable to find constricted set or perfect matching")
         
+        if interactive:
+            print(f"\nCONSTRICTED SET COMPUTATION:")
+            print(f"  Constricted buyers S: {constricted_buyers}")
+            print(f"  Neighborhood N(S): {constricted_neighbors}")
+            print(f"  Condition: |N(S)|={len(constricted_neighbors)} < |S|={len(constricted_buyers)}")
+        
         # 4. According to the pseudocode:
         # S_constricted is the set of buyers (constricted_buyers)
         # N_constricted is the set of sellers (constricted_neighbors)
         # We raise prices for sellers in N_constricted
+        old_prices = prices.copy()
         for seller in constricted_neighbors:
             prices[seller] += 1
         
-        print(f"Iteration {iteration}: Constricted buyers = {constricted_buyers}")
-        print(f"  Their neighbor sellers = {constricted_neighbors}")
-        print(f"  Raising prices for: {constricted_neighbors}")
-        print(f"  Updated prices: {prices}")
+        if interactive:
+            print(f"\nPRICE UPDATE:")
+            print(f"  Sellers to update: {constricted_neighbors}")
+            for seller in constricted_neighbors:
+                print(f"    p[{seller}]: {old_prices[seller]} → {prices[seller]}")
+        else:
+            print(f"Iteration {iteration}: Constricted buyers = {constricted_buyers}")
+            print(f"  Their neighbor sellers = {constricted_neighbors}")
+            print(f"  Raising prices for: {constricted_neighbors}")
+            print(f"  Updated prices: {prices}")
     
     raise RuntimeError(f"Algorithm did not converge after {max_iterations} iterations")
 
@@ -248,23 +295,29 @@ def main():
     parser.add_argument('gml_file', help='Path to the GML file')
     parser.add_argument('--plot', action='store_true', 
                        help='Visualize the graph with matching and prices')
+    parser.add_argument('--interactive', action='store_true',
+                       help='Show detailed output for each round')
     args = parser.parse_args()
     
     # Load the graph from GML file
     G = nx.read_gml(args.gml_file, label='id')
     
-    print("Original Graph:")
-    print(f"Nodes: {G.nodes(data=True)}")
-    print(f"Edges: {G.edges(data=True)}")
-    print()
+    if not args.interactive:
+        print("Original Graph:")
+        print(f"Nodes: {G.nodes(data=True)}")
+        print(f"Edges: {G.edges(data=True)}")
+        print()
     
     # Run market clearing algorithm
-    matching, prices = market_clearing(G)
+    matching, prices = market_clearing(G, interactive=args.interactive)
     
-    print("Market Clearing Results:")
+    if not args.interactive:
+        print("\nMarket Clearing Results:")
+    print(f"\n{'='*60}")
+    print("FINAL RESULTS")
+    print(f"{'='*60}")
     print(f"Final Prices: {prices}")
     print(f"Perfect Matching: {matching}")
-    print()
     
     # Calculate total value
     total_value = sum(G.edges[buyer, seller]['valuation'] for buyer, seller in matching)
