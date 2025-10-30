@@ -284,8 +284,11 @@ def visualize_market(G: nx.Graph, matching: List[Tuple[int, int]], prices: Dict[
                     for buyer in buyers]
     nx.draw_networkx_nodes(G, pos, nodelist=buyers, node_color=buyer_colors,
                            node_size=2500, node_shape='o')
-    nx.draw_networkx_labels(G, pos, {b: f'B{b}' for b in buyers}, 
-                           font_size=16, font_weight='bold')
+    buyer_labels = {}
+    for b in buyers:
+        buyer_labels[b] = f'B{b}\n(prefs: {[G.edges[b, s]["valuation"] for s in G.neighbors(b)]})'
+    nx.draw_networkx_labels(G, pos, buyer_labels, font_size=12, font_weight='bold')
+
     
     # Draw sellers (right side)
     matched_sellers = [seller for _, seller in matching]
