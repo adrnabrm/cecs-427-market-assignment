@@ -85,6 +85,13 @@ The program outputs:
 3. **Total Market Value** - Sum of valuations in the matching
 4. **Individual Payoffs** - Buyer payoffs (valuation - price)
 
+In plot mode, you see:
+- Buyers circles on the left
+- Seller as squares on the right
+- Green edges that represent final matching (market-clearing pairs)
+- Blue edges that represent other potential preferred connections that were not selected
+- On the right, edge labels that represent payoffs
+
 In interactive mode, you also see:
 - Current prices at each round
 - Preferred-seller graph construction

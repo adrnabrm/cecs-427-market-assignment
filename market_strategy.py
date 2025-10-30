@@ -276,7 +276,7 @@ def visualize_market(G: nx.Graph, matching: List[Tuple[int, int]], prices: Dict[
             # Offset each label vertically based on which buyer is pointing to it
             label_y_offset = 0.8 + (buyer_idx - seller_idx) * 0.4
             offset_pos[(buyer, seller)] = (seller_x + 0.3, seller_y + label_y_offset)
-            edge_labels[(buyer, seller)] = f'B{buyer}→p={payoff}'
+            edge_labels[(buyer, seller)] = f'B{buyer}→S{seller}\np={payoff}'
     
     # Draw buyers (left side)
     matched_buyers = [buyer for buyer, _ in matching]
