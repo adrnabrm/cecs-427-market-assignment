@@ -1,5 +1,10 @@
 # CECS 427: Market and Strategic Interaction in Network
 
+## Authors
+
+Adrian Abraham  
+Matthew Fehr
+
 ## Overview
 
 This project implements the **Market-Clearing Algorithm** for bipartite assignment markets. The algorithm finds market-clearing prices and a perfect matching between buyers and sellers that maximizes total market value.
@@ -129,8 +134,3 @@ The program handles:
 - Malformed graph structures
 - Convergence failures (with error messages)
 - Edge cases such as empty graphs
-
-## Author
-
-Adrian Abraham  
-Matthew Fehr
